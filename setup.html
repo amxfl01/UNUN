@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <title>Notion 캘린더 위젯 설정</title>
+    <style>
+        body { font-family: Inter, sans-serif; padding: 40px; background: #f7f7f7; text-align: center; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        label { display: block; text-align: left; margin-bottom: 5px; font-weight: 600; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 700; }
+        p { text-align: left; font-size: 14px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Notion 캘린더 위젯 설정</h2>
+        <p>⚠️ 이 방식은 토큰을 브라우저에 노출합니다. 보안에 민감하다면, 서버 기반 배포(B 방식)를 권장합니다. (토큰 재발급 후 사용)</p>
+        
+        <label for="token">Notion Secret Token (secret_...)</label>
+        <input type="text" id="token" placeholder="Notion Integration Secret Token" required>
+        
+        <label for="dbId">Notion Database ID</label>
+        <input type="text" id="dbId" placeholder="Database UUID" required>
+        
+        <button onclick="saveAndRedirect()">위젯 생성 및 열기</button>
+    </div>
+
+    <script>
+        function saveAndRedirect() {
+            const token = document.getElementById('token').value.trim();
+            const dbId = document.getElementById('dbId').value.trim().replace(/-/g, ''); // 대시 제거
+
+            if (token && dbId) {
+                // 토큰과 DB ID를 URL의 해시(#) 부분에 인코딩하여 다음 페이지로 전달
+                const params = new URLSearchParams();
+                params.append('token', token);
+                params.append('db', dbId);
+                
+                // widget.html 파일이 현재 setup.html과 같은 디렉토리에 있다고 가정
+                window.location.href = 'widget.html#' + params.toString();
+            } else {
+                alert('토큰과 DB ID를 모두 입력해주세요.');
+            }
+        }
+    </script>
+</body>
+</html>

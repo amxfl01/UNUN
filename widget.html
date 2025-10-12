@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Notion Custom Mini Calendar</title>
+    <style>
+        /* (이전 답변에서 제공된 이미지 기반 CSS 코드를 여기에 붙여넣으세요) */
+        /* 복잡하므로 CSS 코드는 이전 답변을 참고하여 그대로 사용한다고 가정합니다. */
+        /* ... (CSS 코드 시작) ... */
+        body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto; padding: 10px; color: #111; max-width: 300px; }
+        .widget-box { border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .month-display { font-size: 18px; font-weight: 500; margin-bottom: 10px; text-transform: lowercase; display: flex; align-items: center; gap: 8px; }
+        .today-label { font-size: 13px; font-weight: 600; color: #444; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px; display: flex; align-items: center; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .dow { font-size: 12px; text-align: center; color: #7a8696; font-weight: 500; }
+        .cell { height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #222; font-size: 13px; cursor: default; font-weight: 500; background: #f7f7f7; }
+        .cell.is-today { border-bottom: 2px solid #7a8696; border-radius: 0; background: #fff; }
+        .cell[data-color] { background: #e0e0e0; color: #222; cursor: pointer; border: none; }
+        .cell[data-color="blue"]{ background: #cfe8ff; } 
+        .cell[data-color="pink"]{ background: #ffd6e8; }
+        .cell[data-color="gray"]{ background: #dcdcdc; }
+        .cell.empty { background: transparent; opacity: 0; pointer-events: none; }
+        .add-btn { width: 100%; margin-top: 15px; padding: 8px 14px; border: 1px solid transparent; background: #fff; color: #444; cursor: pointer; font-weight: 600; font-size: 13px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+        .add-btn:hover { background: #f5f5f5; }
+        .add-btn span { margin: 0 5px; color: #7a8696; }
+        /* ... (CSS 코드 끝) ... */
+    </style>
+</head>
+<body>
+    <div class="widget-box">
+        <div class="month-display" id="monthDisplay"></div>
+        <div class="today-label" id="todayLabel">♡ TODAY IS <span style="font-size:18px;">.</span></div>
+        <div class="calendar-grid" id="dowRow">
+            <div class="dow">Mo</div><div class="dow">Tu</div><div class="dow">We</div><div class="dow">Th</div><div class="dow">Fr</div><div class="dow">Sa</div><div class="dow">Su</div>
+        </div> 
+        <div class="calendar-grid" id="calendarGrid"></div> 
+        <button class="add-btn" id="addBtn">—<span class="symbol">✦</span>ADD ENTRY<span class="symbol">✦</span>—</button>
+    </div>
+    
+    <script>
+        // 클라이언트 측 Notion API 호출을 위한 기본 설정
+        const NOTION_API_URL = 'https://api.notion.com/v1/';
+        // 공개 CORS 프록시 사용 (토큰 노출 문제로 비권장되지만, 서버 없이 사용하기 위한 임시 방편)
+        const PROXY_URL = 'https://cors-anywhere.herokuapp.com/'; 
+        
+        let NOTION_TOKEN;
+        let NOTION_DB_ID;
+
+        // ------------------ URL에서 토큰 및 DB ID 추출 ------------------
+        function getAuthParams() {
+            const hash = window.location.hash.substring(1);
+            if (!hash) {
+                alert('설정 정보가 누락되었습니다. setup.html로 이동하여 다시 설정해주세요.');
+                window.location.href = 'setup.html';
+                return false;
+            }
+            const params = new URLSearchParams(hash);
+            NOTION_TOKEN = params.get('token');
+            NOTION_DB_ID = params.get('db');
+            return true;
+        }
+
+        // ------------------ Notion API 호출 함수 (프록시 사용) ------------------
+        async function callNotionApi(endpoint, method = 'GET', body = null) {
+            const url = PROXY_URL + NOTION_API_URL + endpoint;
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${NOTION_TOKEN}`,
+                'Notion-Version': '2022-06-28', // 안정적인 버전 명시
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers,
+                    body: body ? JSON.stringify(body) : null
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Notion API Error:', response.status, errorData);
+                    throw new Error(`API 호출 실패: ${response.status} (${errorData.code || 'unknown'})`);
+                }
+                return response.json();
+            } catch (error) {
+                console.error("Fetch Error:", error);
+                alert(`API 통신 오류: 토큰/DB ID가 올바른지 확인해주세요. ${error.message}`);
+                return null;
+            }
+        }
+        
+        // ------------------ 기존 위젯 로직 (API 호출만 변경됨) ------------------
+
+        let displayYear = (new Date()).getFullYear();
+        let displayMonth = (new Date()).getMonth() + 1; 
+        
+        const monthDisplay = document.getElementById('monthDisplay');
+        const todayLabel = document.getElementById('todayLabel');
+        const addBtn = document.getElementById('addBtn');
+        const today = new Date();
+        
+        // (이전 답변의 updateTodayLabel, addEntry, loadCalendar, renderGrid 함수를 여기에 붙여넣습니다.)
+        
+        // --- 1. updateTodayLabel 함수 (최종 수정 버전) ---
+        function updateTodayLabel() {
+        // 1. 개별 날짜 요소 추출 (영어 기준)
+        const month = today.toLocaleString('en-US', { month: 'numeric' }); // 예: 10
+        const day = today.getDate(); // 예: 12
+        const weekday = today.toLocaleString('en-US', { weekday: 'short' }).toUpperCase(); // 예: SUN
+    
+        // 2. 요청하신 '월/ 일/ 요일' 순서로 문자열 조합
+        // (이미지처럼 월과 일 사이에 띄어쓰기, 일과 요일 사이에 띄어쓰기를 적용)
+        const finalDateString = `${month}/ ${day}/ ${weekday}`;
+    
+        // 최종적으로 todayLabel 요소에 삽입
+        // .을 이용한 시각적 장식은 유지
+        todayLabel.innerHTML = `TODAY IS &nbsp; ${finalDateString}`;
+        }
+        
+        // --- 2. addEntry 함수 (페이지 생성 API 호출) ---
+        async function addEntry() {
+            addBtn.disabled = true; 
+            addBtn.textContent = '...ADDING';
+
+            const payload = {
+                parent: { database_id: NOTION_DB_ID },
+                properties: {
+                    'Name': { title: [{ text: { content: `오늘의 기록 (${today.toLocaleDateString('ko-KR')})` } }] },
+                    'Date': { date: { start: new Date().toISOString() } },
+                    'Color': { select: { name: 'blue' } } // 기본 색상
+                }
+            };
+            
+            const data = await callNotionApi(`pages`, 'POST', payload);
+            
+            addBtn.disabled = false;
+            addBtn.innerHTML = `—<span class="symbol">✦</span>ADD ENTRY<span class="symbol">✦</span>—`;
+
+            if (data && data.id) {
+                const pageId = data.id.replace(/-/g,'');
+                window.open(`https://www.notion.so/${pageId}`, '_blank');
+                setTimeout(loadCalendar, 800); 
+            }
+        } 
+        
+        addBtn.addEventListener('click', addEntry);
+
+        // --- 3. loadCalendar 함수 (데이터 조회 API 호출) ---
+        async function loadCalendar(){
+            const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+            monthDisplay.innerHTML = `📅 °•.✦.••• ${monthNames[displayMonth - 1]}`; 
+            
+            const start = new Date(displayYear, displayMonth - 1, 1).toISOString().slice(0, 10);
+            const end = new Date(displayYear, displayMonth, 0).toISOString().slice(0, 10);
+            
+            const payload = {
+                filter: {
+                    and: [
+                        { property: 'Date', date: { on_or_after: start } },
+                        { property: 'Date', date: { on_or_before: end } }
+                    ]
+                },
+                page_size: 100
+            };
+            
+            const data = await callNotionApi(`databases/${NOTION_DB_ID}/query`, 'POST', payload);
+            const items = (data && data.results) ? data.results : [];
+
+            const dayMap = {};
+            items.forEach(p => {
+                const dateProp = p.properties['Date']?.date?.start || null;
+                const color = p.properties['Color']?.select?.name || null;
+                
+                if(dateProp){
+                    const d = new Date(dateProp);
+                    const day = d.getDate(); 
+                    dayMap[day] = { id: p.id, date: dateProp, color: color || null };
+                }
+            });
+
+            renderGrid(displayYear, displayMonth, dayMap);
+            updateTodayLabel();
+        }
+
+        // --- 4. renderGrid 함수 (HTML 렌더링 로직) ---
+        function renderGrid(year, month, dayMap){
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            
+            const first = new Date(year, month-1, 1);
+            const jsWeekday = first.getDay(); 
+            const startIndex = (jsWeekday + 6) % 7; 
+
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const currentDay = (year === today.getFullYear() && month === today.getMonth() + 1) ? today.getDate() : -1;
+
+            for(let i=0;i<startIndex;i++){
+                const el = document.createElement('div');
+                el.className = 'cell empty';
+                grid.appendChild(el);
+            }
+            
+            for(let day=1; day<=daysInMonth; day++){
+                const el = document.createElement('div');
+                el.className = 'cell';
+                el.textContent = day;
+
+                if (day === currentDay) {
+                    el.classList.add('is-today');
+                }
+                
+                if(dayMap[day] && dayMap[day].color){
+                    el.setAttribute('data-color', dayMap[day].color); 
+                    el.title = `기록 완료: ${dayMap[day].color}`;
+                    el.addEventListener('click', () => {
+                        const pageId = dayMap[day].id.replace(/-/g,'');
+                        window.open(`https://www.notion.so/${pageId}`, '_blank');
+                    });
+                }
+                grid.appendChild(el);
+            }
+
+            const totalCells = startIndex + daysInMonth;
+            const remaining = (42 - totalCells) % 7; 
+            for(let i=0; i<remaining; i++){
+                const el = document.createElement('div');
+                el.className = 'cell empty';
+                grid.appendChild(el);
+            }
+        } 
+
+        // 초기 실행
+        if (getAuthParams()) {
+            loadCalendar();
+        }
+    </script>
+</body>
+</html>
