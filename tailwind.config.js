@@ -1,9 +1,8 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  // src 폴더 내의 모든 JS, JSX, TS, TSX 파일을 스캔하여 Tailwind 클래스를 찾습니다.
+export default {
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
-    "./public/index.html",
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}", // src 폴더 내의 모든 React 파일을 스캔합니다.
   ],
   theme: {
     extend: {},

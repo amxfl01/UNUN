@@ -1,4 +1,5 @@
-module.exports = {
+// ESM-friendly PostCSS config (package.json contains "type": "module")
+export default {
   plugins: {
     // PostCSS가 Tailwind CSS를 먼저 처리하도록 설정
     tailwindcss: {},

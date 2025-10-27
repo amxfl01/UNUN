@@ -1,0 +1,14 @@
+nohup: ignoring input
+
+> notion-calendar-widget@0.0.0 dev
+> vite
+
+
+  VITE v4.5.14  ready in 190 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+4:16:31 AM [vite] page reload src/notioncalendarwidget.jsx
+4:16:32 AM [vite] page reload src/notioncalendarwidget.jsx
+4:16:50 AM [vite] page reload src/notioncalendarwidget.jsx
+4:17:29 AM [vite] page reload src/notioncalendarwidget.jsx
